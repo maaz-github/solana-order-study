@@ -1,0 +1,35 @@
+# One-command reproduction.
+#
+#   docker compose up            # dry run: discovery + analysis, no keys, no fees
+#   docker compose run test      # unit tests, no network
+#   docker compose run live      # real mainnet measurement (needs a funded key)
+#
+# The `live` service is deliberately separate so a plain `up` can never spend.
+
+services:
+  study:
+    build: .
+    environment:
+      - SOLANA_ORDER_LIVE=0
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
+    volumes:
+      - ./data:/study/data
+    command: ["--discover-only"]
+
+  test:
+    build: .
+    command: ["-m", "pytest", "tests/", "-q"]
+    profiles: ["test"]
+
+  live:
+    build: .
+    environment:
+      - SOLANA_ORDER_LIVE=1
+      - SOLANA_KEYPAIR_PATH=/keys/funder.json
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
+      - SOLANA_ORDER_SPEND_CAP=${SOLANA_ORDER_SPEND_CAP:-40000000}
+    volumes:
+      - ./data:/study/data
+      # Mount the key directory read-only and only for this service.
+      - ${SOLANA_KEYPAIR_DIR:-./keys}:/keys:ro
+    profiles: ["live"]
